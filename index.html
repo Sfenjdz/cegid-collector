@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cegid Collector</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html5-qrcode library for barcode scanning -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- PapaParse for CSV file parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        /* Custom styles for a better look and feel */
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style for the QR code reader viewfinder */
+        #reader {
+            border: 2px solid #4f46e5;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        /* Active tab style */
+        .tab-active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        /* Custom focus ring */
+        .focus-ring:focus {
+            outline: 2px solid #818cf8;
+            outline-offset: 2px;
+        }
+        /* Hide scrollbar but allow scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Animation for status dots */
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
+        }
+        .dot-loaded {
+            animation: pulse-green 1.5s infinite;
+        }
+        /* Hide the actual file input */
+        #file-input {
+            display: none;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md mx-auto bg-gray-800 shadow-2xl rounded-2xl p-4 sm:p-6 flex flex-col h-[95vh]">
+        
+        <!-- Header -->
+        <header class="mb-4">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-xl font-bold text-indigo-400">Cegid Collector</h1>
+                <div id="clock" class="text-lg font-mono bg-gray-700 px-3 py-1 rounded-lg"></div>
+            </div>
+
+            <!-- Depot Selector -->
+            <div class="flex items-center space-x-3">
+                <label for="depot-select" class="text-sm font-medium">Dépôt:</label>
+                <select id="depot-select" class="flex-grow bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus-ring">
+                    <option>AZ</option>
+                    <option>Senia</option>
+                    <option>Siège</option>
+                    <option>M1</option>
+                    <option>M2</option>
+                    <option>Dépot centrale</option>
+                </select>
+            </div>
+
+            <!-- Depot Data Status -->
+            <div class="mt-3 flex items-center justify-center space-x-2 text-xs">
+                <span class="font-semibold">Status:</span>
+                <div id="depot-status-container" class="flex items-center space-x-2">
+                    <!-- Status dots will be injected here -->
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="flex justify-center border-b border-gray-700 mb-4">
+            <button id="scanner-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300 tab-active"><i class="fas fa-qrcode mr-2"></i>Scanner</button>
+            <button id="manual-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300"><i class="fas fa-search mr-2"></i>Manuel</button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-grow overflow-y-auto no-scrollbar">
+            <!-- Scanner Tab Content -->
+            <div id="scanner-content">
+                <div id="reader" class="w-full h-64 bg-gray-900 rounded-lg"></div>
+                 <div id="scanner-status" class="text-center text-sm text-gray-400 mt-2"></div>
+            </div>
+
+            <!-- Manual Search Tab Content -->
+            <div id="manual-content" class="hidden">
+                <form id="manual-search-form" class="space-y-4">
+                    <div>
+                        <label for="ref-input" class="block text-sm font-medium mb-1">Référence Produit</label>
+                        <input type="text" id="ref-input" placeholder="Entrer la référence" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
+                    </div>
+                    <div>
+                        <label for="size-select" class="block text-sm font-medium mb-1">Taille / Pointure</label>
+                        <select id="size-select" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring" disabled>
+                            <option>Entrer une référence d'abord</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 focus-ring">
+                        <i class="fas fa-search mr-2"></i>Rechercher
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Message Display -->
+            <div id="message-display" class="mt-4 text-center p-3 rounded-lg hidden"></div>
+
+            <!-- Product Information Display -->
+            <div id="product-info" class="mt-4 p-4 bg-gray-700 rounded-lg hidden space-y-2">
+                <!-- Product details will be injected here -->
+            </div>
+        </main>
+
+        <!-- Footer for Data Import -->
+        <footer class="mt-4 pt-4 border-t border-gray-700">
+            <p class="text-sm font-semibold mb-2 text-center">Importer les Données du Dépôt</p>
+            <div class="flex items-center space-x-2">
+                 <!-- Hidden file input -->
+                <input type="file" id="file-input" accept=".csv">
+                 <!-- Custom-styled button -->
+                <button id="load-data-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 focus-ring">
+                    <i class="fas fa-upload mr-2"></i>Choisir fichier pour <span id="load-depot-name">AZ</span>
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const clockEl = document.getElementById('clock');
+            const depotSelect = document.getElementById('depot-select');
+            const depotStatusContainer = document.getElementById('depot-status-container');
+            
+            const loadDataBtn = document.getElementById('load-data-btn');
+            const fileInput = document.getElementById('file-input');
+            const loadDepotName = document.getElementById('load-depot-name');
+            
+            const scannerTabBtn = document.getElementById('scanner-tab-btn');
+            const manualTabBtn = document.getElementById('manual-tab-btn');
+            const scannerContent = document.getElementById('scanner-content');
+            const manualContent = document.getElementById('manual-content');
+
+            const refInput = document.getElementById('ref-input');
+            const sizeSelect = document.getElementById('size-select');
+            const manualSearchForm = document.getElementById('manual-search-form');
+            
+            const productInfoEl = document.getElementById('product-info');
+            const messageDisplay = document.getElementById('message-display');
+            const scannerStatusEl = document.getElementById('scanner-status');
+
+            // --- App State ---
+            const appState = {
+                currentDepot: 'AZ',
+                activeTab: 'scanner',
+                depots: ['AZ', 'Senia', 'Siège', 'M1', 'M2', 'Dépot centrale'],
+                loadedData: {}, // e.g., { AZ: [product1, product2], Senia: [...] }
+            };
+            
+            let html5QrCode = null;
+
+            // --- Core Functions ---
+
+            function updateClock() {
+                const now = new Date();
+                clockEl.textContent = now.toLocaleTimeString('fr-FR');
+            }
+
+            function updateDepotStatusUI() {
+                depotStatusContainer.innerHTML = '';
+                appState.depots.forEach(depot => {
+                    const isLoaded = !!appState.loadedData[depot];
+                    const dot = document.createElement('div');
+                    dot.className = `w-2 h-2 rounded-full ${isLoaded ? 'bg-green-500 dot-loaded' : 'bg-gray-500'}`;
+                    dot.title = `${depot}: ${isLoaded ? 'Données chargées' : 'Pas de données'}`;
+                    depotStatusContainer.appendChild(dot);
+                });
+            }
+
+            function switchTab(tabName) {
+                appState.activeTab = tabName;
+
+                scannerTabBtn.classList.toggle('tab-active', tabName === 'scanner');
+                manualTabBtn.classList.toggle('tab-active', tabName === 'manual');
+                
+                scannerContent.classList.toggle('hidden', tabName !== 'scanner');
+                manualContent.classList.toggle('hidden', tabName !== 'manual');
+
+                hideProductInfo();
+                hideMessage();
+                
+                if (tabName === 'scanner') {
+                    startScanner();
+                } else {
+                    stopScanner();
+                }
+            }
+            
+            function parseAndLoadData(file) {
+                const depot = appState.currentDepot;
+                
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        try {
+                            const products = results.data.map(row => {
+                                // Basic validation and type conversion
+                                if (!row.ref || !row.baseRef || !row.name) {
+                                    throw new Error(`Ligne invalide: ${JSON.stringify(row)}. Les colonnes 'ref', 'baseRef' et 'name' sont requises.`);
+                                }
+                                return {
+                                    name: row.name,
+                                    ref: row.ref.toUpperCase(),
+                                    baseRef: row.baseRef.toUpperCase(),
+                                    size: row.size || 'Unique',
+                                    price: parseFloat(row.price) || 0,
+                                    qty: parseInt(row.qty, 10) || 0
+                                };
+                            });
+                            appState.loadedData[depot] = products;
+                            updateDepotStatusUI();
+                            showMessage(`Fichier ${file.name} chargé avec succès pour le dépôt ${depot}.`, 'success');
+                            
+                            // If scanner is active, try to start it now that data is loaded
+                            if(appState.activeTab === 'scanner') {
+                                startScanner();
+                            }
+                        } catch (error) {
+                             showMessage(`Erreur de traitement du fichier: ${error.message}`, 'error');
+                             console.error(error);
+                        }
+                    },
+                    error: (error) => {
+                        showMessage(`Erreur de lecture du fichier CSV: ${error.message}`, 'error');
+                        console.error(error);
+                    }
+                });
+            }
+
+
+            function updateSizeSelector() {
+                const baseRef = refInput.value.trim().toUpperCase();
+                sizeSelect.innerHTML = '';
+                sizeSelect.disabled = true;
+
+                const currentDepotData = appState.loadedData[appState.currentDepot];
+                if (!currentDepotData) {
+                    sizeSelect.innerHTML = '<option>Chargez les données du dépôt</option>';
+                    return;
+                }
+                
+                if (!baseRef) {
+                    sizeSelect.innerHTML = "<option>Entrer une référence d'abord</option>";
+                    return;
+                }
+
+                const matchingProducts = currentDepotData.filter(p => p.baseRef === baseRef);
+
+                if (matchingProducts.length > 0) {
+                    matchingProducts.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.size;
+                        option.textContent = p.size;
+                        sizeSelect.appendChild(option);
+                    });
+                    sizeSelect.disabled = false;
+                } else {
+                    sizeSelect.innerHTML = '<option>Aucune taille trouvée</option>';
+                }
+            }
+            
+            function findProduct(ref, size) {
+                const currentDepotData = appState.loadedData[appState.currentDepot];
+                if (!currentDepotData) {
+                    showMessage(`Les données pour le dépôt ${appState.currentDepot} ne sont pas chargées.`, 'error');
+                    return null;
+                }
+                
+                let product;
+                if (size) { // Manual search
+                    const baseRefToFind = ref.toUpperCase();
+                     product = currentDepotData.find(p => p.baseRef === baseRefToFind && p.size === size);
+                } else { // Scanner search
+                    const fullRef = ref.toUpperCase();
+                    product = currentDepotData.find(p => p.ref === fullRef);
+                }
+
+                return product || null;
+            }
+
+            function displayProductInfo(product) {
+                if (!product) {
+                   hideProductInfo();
+                   showMessage('Produit non trouvé dans ce dépôt.', 'error');
+                   return;
+                }
+
+                productInfoEl.innerHTML = `
+                    <div class="text-lg font-bold">${product.name}</div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <span class="font-semibold text-gray-400">Référence:</span> <span>${product.ref}</span>
+                        <span class="font-semibold text-gray-400">Taille/Pointure:</span> <span class="font-bold text-lg">${product.size}</span>
+                        <span class="font-semibold text-gray-400">Prix:</span> <span>${product.price.toFixed(2)} DZ</span>
+                        <span class="font-semibold text-gray-400">Quantité (${appState.currentDepot}):</span> <span class="font-bold text-xl text-indigo-400">${product.qty}</span>
+                    </div>
+                `;
+                productInfoEl.classList.remove('hidden');
+                hideMessage();
+            }
+            
+            function hideProductInfo() {
+                productInfoEl.classList.add('hidden');
+            }
+
+            function showMessage(text, type = 'info') {
+                messageDisplay.textContent = text;
+                messageDisplay.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'bg-blue-500');
+                if (type === 'error') {
+                    messageDisplay.classList.add('bg-red-500');
+                } else if (type === 'success') {
+                    messageDisplay.classList.add('bg-green-500');
+                } else {
+                     messageDisplay.classList.add('bg-blue-500');
+                }
+            }
+            
+            function hideMessage() {
+                messageDisplay.classList.add('hidden');
+            }
+            
+            // --- Barcode Scanner Functions ---
+
+            function onScanSuccess(decodedText, decodedResult) {
+                console.log(`Code matched = ${decodedText}`, decodedResult);
+                const product = findProduct(decodedText);
+                displayProductInfo(product);
+            }
+
+            function onScanFailure(error) {
+                // Ignore scan failure.
+            }
+
+            function startScanner() {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    return;
+                }
+                
+                const currentDepotData = appState.loadedData[appState.currentDepot];
+                if (!currentDepotData) {
+                    scannerStatusEl.textContent = `Chargez les données pour le dépôt ${appState.currentDepot} avant de scanner.`;
+                    return;
+                }
+
+                html5QrCode = new Html5Qrcode("reader");
+                scannerStatusEl.textContent = "Démarrage de la caméra...";
+                
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+                    .catch(err => {
+                        scannerStatusEl.textContent = "Erreur de caméra: impossible de démarrer le scanner.";
+                        console.error("Unable to start scanning.", err);
+                    })
+                    .then(() => {
+                         scannerStatusEl.textContent = "Pointez la caméra vers un code-barres.";
+                    });
+            }
+
+            function stopScanner() {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().then(ignore => {
+                        scannerStatusEl.textContent = "Scanner arrêté.";
+                    }).catch(err => {
+                        console.error("Failed to stop scanning.", err);
+                    });
+                }
+            }
+
+            // --- Event Listeners ---
+            
+            // Clock
+            setInterval(updateClock, 1000);
+
+            // Depot selection
+            depotSelect.addEventListener('change', (e) => {
+                appState.currentDepot = e.target.value;
+                loadDepotName.textContent = appState.currentDepot;
+                hideProductInfo();
+                hideMessage();
+                if (appState.activeTab === 'scanner') {
+                    stopScanner();
+                    startScanner();
+                }
+            });
+
+            // Tab switching
+            scannerTabBtn.addEventListener('click', () => switchTab('scanner'));
+            manualTabBtn.addEventListener('click', () => switchTab('manual'));
+            
+            // Data loading
+            loadDataBtn.addEventListener('click', () => {
+                fileInput.click(); // Trigger the hidden file input
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    parseAndLoadData(file);
+                }
+                 // Reset file input to allow loading the same file again
+                e.target.value = null;
+            });
+
+            // Manual search form
+            refInput.addEventListener('input', updateSizeSelector);
+            manualSearchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const ref = refInput.value.trim();
+                const size = sizeSelect.value;
+                if (!ref || !size || sizeSelect.disabled) {
+                    showMessage('Veuillez entrer une référence valide et sélectionner une taille.', 'error');
+                    return;
+                }
+                const product = findProduct(ref, size);
+                displayProductInfo(product);
+            });
+
+            // --- Initial Setup ---
+            function initializeApp() {
+                updateClock();
+                updateDepotStatusUI();
+                loadDepotName.textContent = appState.currentDepot;
+                switchTab('scanner');
+            }
+
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
