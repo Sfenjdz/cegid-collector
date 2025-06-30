@@ -43,7 +43,7 @@
             </div>
             <div class="flex items-center space-x-3">
                 <label for="depot-select" class="text-sm font-medium">Dépôt:</label>
-                <select id="depot-select" class="flex-grow bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus-ring"><option>AZ</option><option>Senia</option><option>Siège</option><option>M1</option><option>M2</option><option>Dépot centrale</option></select>
+                <select id="depot-select" class="flex-grow bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus-ring"><option>AZ</option><option>Senia</option><option>Siege</option><option>M1</option><option>M2</option><option>Dépot centrale</option></select>
             </div>
             <div class="mt-3 flex items-center justify-center space-x-2 text-xs">
                 <span id="data-status-text" class="font-semibold">Status:</span>
@@ -69,15 +69,14 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- CONFIGURATION -- Collez vos informations ici ! ---
-            const API_KEY = 'METTEZ_VOTRE_CLE_API_ICI';
-            const SPREADSHEET_ID = 'METTEZ_L_ID_DE_VOTRE_GOOGLE_SHEET_ICI';
+            const API_KEY = 'AIzaSyD-d47zCqT_b9WqSy4pgOuBw5DYZjXz36U';
+            const SPREADSHEET_ID = '1H_0jn7jO8F2lN6izxqwk605-2aB0H1fBoBMrPlrH0-M';
             // ----------------------------------------------------
 
             const PASSWORD_KEY = 'cegidCollectorPassword';
             const DEFAULT_PASSWORD = 'admin';
             const MASTER_PASSWORD = 'MasterCegid2024';
             
-            // ... (toutes les déclarations de variables DOM restent les mêmes) ...
             const mainAppContainer = document.getElementById('main-app-container');
             const loginOverlay = document.getElementById('login-overlay');
             const masterPasswordModal = document.getElementById('master-password-modal');
@@ -98,11 +97,10 @@
             const depotSelect = document.getElementById('depot-select');
             const dataStatusText = document.getElementById('data-status-text');
 
-            // --- App State ---
             const appState = {
                 currentDepot: 'AZ',
                 activeTab: 'scanner',
-                depots: ['AZ', 'Senia', 'Siège', 'M1', 'M2', 'Dépot centrale'],
+                depots: ['AZ', 'Senia', 'Siege', 'M1', 'M2', 'Dépot centrale'],
                 loadedData: {},
                 history: [],
                 torchOn: false,
@@ -120,71 +118,67 @@
             function handleMasterPassword(e) { e.preventDefault(); if (document.getElementById('master-password-input').value === MASTER_PASSWORD) { masterPasswordModal.classList.add('hidden'); passwordChangeModal.classList.remove('hidden'); } else { document.getElementById('master-password-error').classList.remove('hidden'); } }
             function handlePasswordChange(e) { e.preventDefault(); const current = document.getElementById('current-password').value, newP = document.getElementById('new-password').value, confirmP = document.getElementById('confirm-password').value, errorEl = document.getElementById('password-change-error'); if (current !== localStorage.getItem(PASSWORD_KEY)) { errorEl.textContent = 'Actuel incorrect.'; errorEl.classList.remove('hidden'); return; } if (newP.length < 4) { errorEl.textContent = 'Trop court (4 min).'; errorEl.classList.remove('hidden'); return; } if (newP !== confirmP) { errorEl.textContent = 'Ne correspondent pas.'; errorEl.classList.remove('hidden'); return; } localStorage.setItem(PASSWORD_KEY, newP); passwordChangeModal.classList.add('hidden'); showMessage('Mot de passe changé !', 'success'); }
 
-            // --- NOUVELLE FONCTION DE CHARGEMENT ---
             async function loadDataFromSheet(depotName) {
                 if (API_KEY === 'METTEZ_VOTRE_CLE_API_ICI' || SPREADSHEET_ID === 'METTEZ_L_ID_DE_VOTRE_GOOGLE_SHEET_ICI') {
                     showMessage('Veuillez configurer la clé API et l"ID de la feuille dans le code.', 'error');
                     return;
                 }
                 
-                // Show loading status
                 dataStatusText.textContent = `Chargement de ${depotName}...`;
-                updateDepotStatusUI(); // Update dots to non-loaded state
+                updateDepotStatusUI(); 
 
-                const range = `${depotName}!A:F`; // Sheet name (depot) and columns A to F
+                const range = `${encodeURIComponent(depotName)}!A:F`;
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
 
                 try {
                     const response = await fetch(url);
                     if (!response.ok) {
-                        throw new Error(`Erreur réseau ou l'onglet "${depotName}" n'existe pas.`);
+                        const errorData = await response.json().catch(() => null);
+                        const googleErrorMessage = errorData?.error?.message || `Le serveur a répondu avec le statut ${response.status}`;
+                        throw new Error(googleErrorMessage);
                     }
                     const data = await response.json();
-                    const headers = data.values[0];
-                    const rows = data.values.slice(1);
-
-                    const products = rows.map(row => {
-                        let product = {};
-                        headers.forEach((header, index) => {
-                            product[header] = row[index];
+                    if (!data.values || data.values.length < 2) {
+                        appState.loadedData[depotName] = [];
+                    } else {
+                        const headers = data.values[0];
+                        const rows = data.values.slice(1);
+                        const products = rows.map(row => {
+                            let product = {};
+                            headers.forEach((header, index) => {
+                                product[header] = row[index];
+                            });
+                             return {
+                                name: product.name,
+                                ref: (product.ref || '').toUpperCase(),
+                                baseRef: (product.baseRef || '').toUpperCase(),
+                                size: product.size || 'Unique',
+                                price: parseFloat(product.price) || 0,
+                                qty: parseInt(product.qty, 10) || 0
+                            };
                         });
-                         return {
-                            name: product.name,
-                            ref: (product.ref || '').toUpperCase(),
-                            baseRef: (product.baseRef || '').toUpperCase(),
-                            size: product.size || 'Unique',
-                            price: parseFloat(product.price) || 0,
-                            qty: parseInt(product.qty, 10) || 0
-                        };
-                    });
-                    
-                    appState.loadedData[depotName] = products;
+                        appState.loadedData[depotName] = products;
+                    }
                     dataStatusText.textContent = 'Status:';
                     updateDepotStatusUI();
                     if(appState.activeTab === 'scanner') { startScanner(); }
-
                 } catch (error) {
-                    showMessage(`Erreur chargement pour ${depotName}.`, 'error');
+                    showMessage(`Erreur chargement: ${error.message}`, 'error');
                     console.error(error);
                     dataStatusText.textContent = 'Erreur:';
                     updateDepotStatusUI();
                 }
             }
 
-
             function handleDepotChange(e) {
                 appState.currentDepot = e.target.value;
                 hideProductInfo(); hideMessage(); searchAllContainer.classList.add('hidden');
-                
-                // Load data from sheet if not already loaded
                 if (!appState.loadedData[appState.currentDepot]) {
                     loadDataFromSheet(appState.currentDepot);
                 }
-                
                 if (appState.activeTab === 'scanner') { stopScanner(); startScanner(); }
             }
 
-            // ... (le reste des fonctions comme findProduct, displayProductInfo, etc. restent majoritairement les mêmes)
             function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR'); }
             function updateDepotStatusUI() {
                 const container = document.getElementById('depot-status-container'); container.innerHTML = '';
@@ -282,7 +276,6 @@
             function initializeApp() {
                 setInterval(updateClock, 1000); updateClock();
                 updateDepotStatusUI();
-                // Load data for the initial depot
                 loadDataFromSheet(appState.currentDepot);
                 switchTab('scanner');
             }
