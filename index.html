@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cegid Collector</title>
+    <title>Cegid Collector (Debug)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         /* ... (tous les styles restent les mêmes) ... */
         body { -webkit-font-smoothing: antialiased; font-family: 'Inter', sans-serif; }
         #reader { border: 2px solid #4f46e5; border-radius: 0.5rem; overflow: hidden; position: relative; }
         .tab-active { background-color: #4f46e5; color: white; }
+        .subtab-active { border-color: #4f46e5; background-color: #4f46e5; color: white; }
         .focus-ring:focus { outline: 2px solid #818cf8; outline-offset: 2px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -23,6 +23,7 @@
         #torch-btn.active { color: #facc15; }
         .history-item { cursor: pointer; transition: background-color 0.2s; }
         .history-item:hover { background-color: #4f46e5; }
+        #debug-panel { background-color: #1f2937; border: 1px solid #4b5563; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +55,29 @@
         <div class="flex justify-center border-b border-gray-700 mb-4"><button id="scanner-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300 tab-active"><i class="fas fa-qrcode mr-2"></i>Scanner</button><button id="manual-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300"><i class="fas fa-search mr-2"></i>Manuel</button></div>
         <main class="flex-grow overflow-y-auto no-scrollbar">
             <div id="scanner-content"><div id="reader" class="w-full h-64 bg-gray-900 rounded-lg"><div id="torch-btn" class="hidden"><i class="fas fa-lightbulb"></i></div></div><div id="scanner-status" class="text-center text-sm text-gray-400 mt-2"></div></div>
-            <div id="manual-content" class="hidden"><form id="manual-search-form" class="space-y-4"><div><label for="ref-input" class="block text-sm font-medium mb-1">Référence Produit</label><input type="text" id="ref-input" placeholder="Entrer la référence" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring"></div><div><label for="size-select" class="block text-sm font-medium mb-1">Taille / Pointure</label><select id="size-select" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring" disabled><option>Entrer une référence</option></select></div><button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus-ring"><i class="fas fa-search mr-2"></i>Rechercher</button></form></div>
+            
+            <div id="manual-content" class="hidden">
+                <div class="mb-4 flex rounded-md shadow-sm">
+                    <button id="ref-subtab-btn" type="button" class="relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-600 text-sm font-medium rounded-l-md text-gray-300 hover:bg-gray-700 focus:z-10 focus-ring subtab-active">Code-barre</button>
+                    <button id="barcode-subtab-btn" type="button" class="relative -ml-px inline-flex items-center space-x-2 px-4 py-2 border border-gray-600 text-sm font-medium rounded-r-md text-gray-300 hover:bg-gray-700 focus:z-10 focus-ring">Référence</button>
+                </div>
+                <form id="manual-search-form" class="space-y-4">
+                    <div id="ref-input-container">
+                        <label for="ref-input" class="block text-sm font-medium mb-1">Code-barre Produit (base)</label>
+                        <input type="text" id="ref-input" placeholder="Ex: 003789" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
+                    </div>
+                    <div id="barcode-input-container" class="hidden">
+                        <label for="barcode-input" class="block text-sm font-medium mb-1">Référence Produit (complète)</label>
+                        <input type="text" id="barcode-input" placeholder="Ex: 003789-102" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
+                    </div>
+                    <div>
+                        <label for="size-select" class="block text-sm font-medium mb-1">Taille / Pointure</label>
+                        <select id="size-select" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring" disabled><option>Entrer une référence</option></select>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus-ring"><i class="fas fa-search mr-2"></i>Rechercher</button>
+                </form>
+            </div>
+
             <div id="message-display" class="mt-4 text-center p-3 rounded-lg hidden"></div>
             <div id="product-info" class="mt-4 p-4 bg-gray-700 rounded-lg hidden space-y-2"></div>
             <div id="search-all-container" class="mt-4 hidden"><button id="search-all-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus-ring"><i class="fas fa-globe-americas mr-2"></i>Rechercher partout</button></div>
@@ -64,8 +87,15 @@
         <footer class="mt-4 pt-4 border-t border-gray-700">
              <p class="text-sm text-gray-500 text-center">Données fournies par Google Sheets.</p>
         </footer>
+        
+        <!-- DEBUG PANEL -->
+        <div id="debug-panel" class="p-3 mt-4 rounded-lg text-xs">
+            <h4 class="font-bold text-yellow-400 mb-2">Infos de Débogage</h4>
+            <div id="debug-content" class="space-y-1 font-mono"></div>
+        </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- CONFIGURATION -- Collez vos informations ici ! ---
@@ -96,10 +126,20 @@
             const searchAllContainer = document.getElementById('search-all-container');
             const depotSelect = document.getElementById('depot-select');
             const dataStatusText = document.getElementById('data-status-text');
+            const debugContent = document.getElementById('debug-content');
+            
+            const refSubtabBtn = document.getElementById('ref-subtab-btn');
+            const barcodeSubtabBtn = document.getElementById('barcode-subtab-btn');
+            const refInputContainer = document.getElementById('ref-input-container');
+            const barcodeInputContainer = document.getElementById('barcode-input-container');
+            const refInput = document.getElementById('ref-input');
+            const barcodeInput = document.getElementById('barcode-input');
+            const sizeSelect = document.getElementById('size-select');
 
             const appState = {
                 currentDepot: 'AZ',
                 activeTab: 'scanner',
+                manualSearchType: 'ref', // 'ref' or 'barcode'
                 depots: ['AZ', 'Senia', 'Siege', 'M1', 'M2', 'Dépot centrale'],
                 loadedData: {},
                 history: [],
@@ -110,8 +150,15 @@
             
             let html5QrCode = null;
             let sound, errorSound;
+            
+            function updateDebugPanel(html) { debugContent.innerHTML = html; }
 
-            function initSounds() { if (Tone.context.state !== 'running') { Tone.start(); } sound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(); errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(); }
+            function initSounds() { 
+                if (typeof Tone === 'undefined') { console.error("Tone.js has not loaded."); sound = { triggerAttackRelease: () => {} }; errorSound = { triggerAttackRelease: () => {} }; return; }
+                if (Tone.context.state !== 'running') { Tone.start(); } 
+                sound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(); 
+                errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(); 
+            }
             function initializePassword() { if (!localStorage.getItem(PASSWORD_KEY)) { localStorage.setItem(PASSWORD_KEY, DEFAULT_PASSWORD); } }
             
             function handleLogin(e) { e.preventDefault(); if (document.getElementById('password-input').value === localStorage.getItem(PASSWORD_KEY)) { loginOverlay.classList.add('hidden'); mainAppContainer.classList.remove('hidden'); mainAppContainer.style.display = 'flex'; initSounds(); initializeApp(); } else { document.getElementById('login-error').classList.remove('hidden'); } }
@@ -119,63 +166,39 @@
             function handlePasswordChange(e) { e.preventDefault(); const current = document.getElementById('current-password').value, newP = document.getElementById('new-password').value, confirmP = document.getElementById('confirm-password').value, errorEl = document.getElementById('password-change-error'); if (current !== localStorage.getItem(PASSWORD_KEY)) { errorEl.textContent = 'Actuel incorrect.'; errorEl.classList.remove('hidden'); return; } if (newP.length < 4) { errorEl.textContent = 'Trop court (4 min).'; errorEl.classList.remove('hidden'); return; } if (newP !== confirmP) { errorEl.textContent = 'Ne correspondent pas.'; errorEl.classList.remove('hidden'); return; } localStorage.setItem(PASSWORD_KEY, newP); passwordChangeModal.classList.add('hidden'); showMessage('Mot de passe changé !', 'success'); }
 
             async function loadDataFromSheet(depotName) {
-                if (API_KEY === 'METTEZ_VOTRE_CLE_API_ICI' || SPREADSHEET_ID === 'METTEZ_L_ID_DE_VOTRE_GOOGLE_SHEET_ICI') {
-                    showMessage('Veuillez configurer la clé API et l"ID de la feuille dans le code.', 'error');
-                    return;
-                }
-                
+                if (API_KEY === 'METTEZ_VOTRE_CLE_API_ICI' || SPREADSHEET_ID === 'METTEZ_L_ID_DE_VOTRE_GOOGLE_SHEET_ICI') { showMessage('Veuillez configurer la clé API et l"ID de la feuille dans le code.', 'error'); return; }
                 dataStatusText.textContent = `Chargement de ${depotName}...`;
                 updateDepotStatusUI(); 
-
+                updateDebugPanel(`<span>Tentative de chargement pour: ${depotName}</span>`);
                 const range = `${encodeURIComponent(depotName)}!A:F`;
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
-
                 try {
                     const response = await fetch(url);
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => null);
-                        const googleErrorMessage = errorData?.error?.message || `Le serveur a répondu avec le statut ${response.status}`;
-                        throw new Error(googleErrorMessage);
-                    }
+                    if (!response.ok) { const errorData = await response.json().catch(() => null); const googleErrorMessage = errorData?.error?.message || `Le serveur a répondu avec le statut ${response.status}`; throw new Error(googleErrorMessage); }
                     const data = await response.json();
-                    if (!data.values || data.values.length < 2) {
-                        appState.loadedData[depotName] = [];
-                    } else {
-                        const headers = data.values[0];
-                        const rows = data.values.slice(1);
-                        const products = rows.map(row => {
+                    if (!data.values || data.values.length < 2) { appState.loadedData[depotName] = []; } 
+                    else {
+                        const headers = data.values[0]; const rows = data.values.slice(1);
+                        appState.loadedData[depotName] = rows.map(row => {
                             let product = {};
-                            headers.forEach((header, index) => {
-                                product[header] = row[index];
-                            });
-                             return {
-                                name: product.name,
-                                ref: (product.ref || '').toUpperCase(),
-                                baseRef: (product.baseRef || '').toUpperCase(),
-                                size: product.size || 'Unique',
-                                price: parseFloat(product.price) || 0,
-                                qty: parseInt(product.qty, 10) || 0
-                            };
-                        });
-                        appState.loadedData[depotName] = products;
+                            headers.forEach((header, index) => { product[header] = row[index] || ''; });
+                            return { name: String(product.name || '').trim(), ref: String(product.ref || '').trim().toUpperCase(), baseRef: String(product.baseRef || '').trim().toUpperCase(), size: String(product.size || 'Unique').trim(), price: parseFloat(product.price) || 0, qty: parseInt(product.qty, 10) || 0 };
+                        }).filter(p => p.ref || p.baseRef);
                     }
                     dataStatusText.textContent = 'Status:';
                     updateDepotStatusUI();
+                    const loadedProducts = appState.loadedData[depotName];
+                    let debugHTML = `<div><span class="text-green-400">Succès:</span> ${loadedProducts.length} produits chargés pour ${depotName}.</div>`;
+                    if (loadedProducts.length > 0) { debugHTML += `<div>Échantillon ref/baseRef:</div>`; loadedProducts.slice(0, 3).forEach(p => { debugHTML += `<div>- "${p.ref}" / "${p.baseRef}"</div>`; }); }
+                    updateDebugPanel(debugHTML);
                     if(appState.activeTab === 'scanner') { startScanner(); }
-                } catch (error) {
-                    showMessage(`Erreur chargement: ${error.message}`, 'error');
-                    console.error(error);
-                    dataStatusText.textContent = 'Erreur:';
-                    updateDepotStatusUI();
-                }
+                } catch (error) { showMessage(`Erreur chargement: ${error.message}`, 'error'); updateDebugPanel(`<div class="text-red-400">Échec chargement: ${error.message}</div>`); dataStatusText.textContent = 'Erreur:'; updateDepotStatusUI(); }
             }
 
             function handleDepotChange(e) {
                 appState.currentDepot = e.target.value;
                 hideProductInfo(); hideMessage(); searchAllContainer.classList.add('hidden');
-                if (!appState.loadedData[appState.currentDepot]) {
-                    loadDataFromSheet(appState.currentDepot);
-                }
+                if (!appState.loadedData[appState.currentDepot]) { loadDataFromSheet(appState.currentDepot); }
                 if (appState.activeTab === 'scanner') { stopScanner(); startScanner(); }
             }
 
@@ -199,36 +222,115 @@
                 hideProductInfo(); hideMessage(); searchAllContainer.classList.add('hidden');
                 if (tabName === 'scanner') { startScanner(); } else { stopScanner(); }
             }
-             function updateSizeSelector() {
-                const refInput = document.getElementById('ref-input');
-                const sizeSelect = document.getElementById('size-select');
-                const baseRef = refInput.value.trim().toUpperCase();
-                sizeSelect.innerHTML = ''; sizeSelect.disabled = true;
+
+            function switchManualTab(type) {
+                appState.manualSearchType = type;
+                refSubtabBtn.classList.toggle('subtab-active', type === 'ref');
+                barcodeSubtabBtn.classList.toggle('subtab-active', type === 'barcode');
+                refInputContainer.classList.toggle('hidden', type !== 'ref');
+                barcodeInputContainer.classList.toggle('hidden', type !== 'barcode');
+                refInput.value = '';
+                barcodeInput.value = '';
+                sizeSelect.innerHTML = '<option>Entrer une référence</option>';
+                sizeSelect.disabled = true;
+            }
+            
+            function updateSizeSelector() {
+                const inputEl = appState.manualSearchType === 'ref' ? refInput : barcodeInput;
+                const searchTerm = inputEl.value.trim().toUpperCase();
+                
+                updateDebugPanel(`<div>Mode: ${appState.manualSearchType} | Recherche de: "${searchTerm}"</div>`);
+
+                sizeSelect.innerHTML = '';
+                sizeSelect.disabled = true;
                 const data = appState.loadedData[appState.currentDepot];
                 if (!data) { sizeSelect.innerHTML = '<option>Données non chargées</option>'; return; }
-                if (!baseRef) { sizeSelect.innerHTML = "<option>Entrer une référence</option>"; return; }
-                const products = data.filter(p => p.baseRef === baseRef);
-                if (products.length > 0) {
-                    products.forEach(p => { const opt = document.createElement('option'); opt.value = p.size; opt.textContent = p.size; sizeSelect.appendChild(opt); });
+                if (!searchTerm) { sizeSelect.innerHTML = "<option>Entrer une référence</option>"; return; }
+
+                let productsForSizing = [];
+                if (appState.manualSearchType === 'ref') {
+                    const matchByFullRef = data.find(p => p.ref === searchTerm);
+                    if (matchByFullRef) {
+                        productsForSizing = data.filter(p => p.baseRef === matchByFullRef.baseRef);
+                    }
+                } else { // 'barcode'
+                    productsForSizing = data.filter(p => p.baseRef === searchTerm);
+                }
+                
+                if (productsForSizing.length > 0) {
+                    const targetBaseRef = productsForSizing[0].baseRef;
+                    updateDebugPanel(`<div>Terme trouvé. baseRef identifiée: "${targetBaseRef}". ${productsForSizing.length} tailles trouvées.</div>`);
+                    const uniqueSizes = [...new Set(productsForSizing.map(p => p.size))];
+                    uniqueSizes.forEach(size => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; sizeSelect.appendChild(opt); });
                     sizeSelect.disabled = false;
-                } else { sizeSelect.innerHTML = '<option>Aucune taille</option>'; }
+                } else {
+                    updateDebugPanel(`<div>Aucun produit trouvé pour "${searchTerm}".</div>`);
+                    sizeSelect.innerHTML = '<option>Aucune réf. trouvée</option>';
+                }
             }
-            function findProduct(ref, size, depot = appState.currentDepot) { const data = appState.loadedData[depot]; if (!data) return null; if (size) return data.find(p => p.baseRef === ref.toUpperCase() && p.size === size); return data.find(p => p.ref === ref.toUpperCase()); }
+
+            function findProduct(term, size, isScan = false, depot = appState.currentDepot) {
+                const data = appState.loadedData[depot];
+                if (!data) return null;
+                const searchTerm = term.trim().toUpperCase();
+
+                if (isScan) {
+                    return data.find(p => p.ref === searchTerm);
+                }
+
+                if (size) {
+                    const searchType = appState.manualSearchType;
+                    let firstMatch;
+                    if (searchType === 'ref') {
+                        firstMatch = data.find(p => p.ref === searchTerm);
+                    } else { // barcode
+                        firstMatch = data.find(p => p.baseRef === searchTerm);
+                    }
+                    if (!firstMatch) return null;
+                    return data.find(p => p.baseRef === firstMatch.baseRef && p.size === size);
+                }
+                return data.find(p => p.ref === searchTerm);
+            }
+
+            function onScanSuccess(decodedText) {
+                const searchTerm = decodedText.trim();
+                appState.lastSearchRef = searchTerm;
+                updateDebugPanel(`<div>Scan reçu: "${searchTerm}"</div>`);
+                displayProductInfo(findProduct(searchTerm, null, true));
+            }
+
             function displayProductInfo(product, fromHistory = false) {
-                hideMessage(); searchAllContainer.classList.add('hidden');
+                hideMessage();
+                searchAllContainer.classList.add('hidden'); // Hide it by default
+
                 if (product) {
+                    appState.lastSearchRef = product.baseRef; // Set the last search ref to the canonical baseRef
+
                     if(!fromHistory) { sound.triggerAttackRelease("C5", "0.2"); addToHistory(product); }
                     productInfoEl.innerHTML = `<div class="text-lg font-bold">${product.name}</div><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><span class="font-semibold text-gray-400">Référence:</span><span>${product.ref}</span><span class="font-semibold text-gray-400">Taille:</span><span class="font-bold text-lg">${product.size}</span><span class="font-semibold text-gray-400">Prix:</span><span>${product.price.toFixed(2)} DZ</span><span class="font-semibold text-gray-400">Quantité (${appState.currentDepot}):</span><span class="font-bold text-xl text-indigo-400">${product.qty}</span></div>`;
                     productInfoEl.classList.remove('hidden');
+
+                    // NEW LOGIC: Check for qty === 0
+                    if (product.qty === 0) {
+                        if (Object.keys(appState.loadedData).length > 1) {
+                            searchAllContainer.classList.remove('hidden');
+                        }
+                    }
+
                 } else {
-                    errorSound.triggerAttackRelease("C3", "0.3"); hideProductInfo(); showMessage('Produit non trouvé.', 'error');
-                    if(Object.keys(appState.loadedData).length > 0) { searchAllContainer.classList.remove('hidden'); }
+                    errorSound.triggerAttackRelease("C3", "0.3");
+                    hideProductInfo();
+                    showMessage('Produit non trouvé.', 'error');
+                    // This logic remains: show button if product is not found at all
+                    if(Object.keys(appState.loadedData).length > 0 && appState.lastSearchRef) {
+                        searchAllContainer.classList.remove('hidden');
+                    }
                 }
             }
             function hideProductInfo() { productInfoEl.classList.add('hidden'); }
             function showMessage(text, type = 'info') { messageDisplay.textContent = text; messageDisplay.className = 'mt-4 text-center p-3 rounded-lg'; if (type === 'error') { messageDisplay.classList.add('bg-red-500'); } else if (type === 'success') { messageDisplay.classList.add('bg-green-500'); } else { messageDisplay.classList.add('bg-blue-500'); } }
             function hideMessage() { messageDisplay.classList.add('hidden'); }
-            function onScanSuccess(decodedText) { appState.lastSearchRef = decodedText; displayProductInfo(findProduct(decodedText)); }
+            
             function startScanner() {
                 if (html5QrCode && html5QrCode.isScanning) { return; }
                 if (!appState.loadedData[appState.currentDepot]) { document.getElementById('scanner-status').textContent = `Données non chargées.`; return; }
@@ -244,16 +346,27 @@
             function toggleTorch() { if (appState.cameraTrack) { appState.torchOn = !appState.torchOn; appState.cameraTrack.applyConstraints({ advanced: [{ torch: appState.torchOn }] }); torchBtn.classList.toggle('active', appState.torchOn); } }
             function addToHistory(product) { appState.history = [product, ...appState.history.filter(p => p.ref !== product.ref)].slice(0, 5); renderHistory(); }
             function renderHistory() { if (appState.history.length === 0) { historyContainer.classList.add('hidden'); return; } historyList.innerHTML = ''; appState.history.forEach(p => { const item = document.createElement('div'); item.className = 'history-item bg-gray-700 p-2 rounded-lg flex justify-between items-center text-sm'; item.innerHTML = `<span>${p.name} <span class="text-gray-400">(${p.ref})</span></span><span class="font-bold">${p.qty}</span>`; item.dataset.ref = p.ref; historyList.appendChild(item); }); historyContainer.classList.remove('hidden'); }
-            function handleHistoryClick(e) { const item = e.target.closest('.history-item'); if(item) { const ref = item.dataset.ref; const product = findProduct(ref); if (product) { displayProductInfo(product, true); window.scrollTo(0,0); } } }
+            function handleHistoryClick(e) { const item = e.target.closest('.history-item'); if(item) { const ref = item.dataset.ref; const product = findProduct(ref, null, false); if (product) { displayProductInfo(product, true); window.scrollTo(0,0); } } }
+            
             function handleSearchAll() {
-                const refToSearch = appState.lastSearchRef; if (!refToSearch) return; let results = [];
+                const baseRefToSearch = appState.lastSearchRef; // This is now always a baseRef
+                if (!baseRefToSearch) return;
+                let results = [];
                 for (const depot in appState.loadedData) {
                     if (depot === appState.currentDepot) continue;
-                    const product = findProduct(refToSearch, null, depot);
-                    if(product && product.qty > 0) { results.push({depot, qty: product.qty}); }
+                    const depotData = appState.loadedData[depot];
+                    const itemsInDepot = depotData.filter(p => p.baseRef === baseRefToSearch && p.qty > 0);
+                    if (itemsInDepot.length > 0) {
+                        const totalQtyInDepot = itemsInDepot.reduce((sum, item) => sum + item.qty, 0);
+                        results.push({depot, qty: totalQtyInDepot});
+                    }
                 }
-                if(results.length > 0) { showMessage(`Trouvé: ${results.map(r => `${r.depot} (${r.qty})`).join(', ')}`, 'success'); } 
-                else { showMessage(`Non trouvé dans les autres dépôts.`, 'info'); }
+
+                if(results.length > 0) {
+                    showMessage(`Trouvé: ${results.map(r => `${r.depot} (${r.qty})`).join(', ')}`, 'success');
+                } else {
+                    showMessage(`Non trouvé dans les autres dépôts.`, 'info');
+                }
                 searchAllContainer.classList.add('hidden');
             }
 
@@ -270,7 +383,21 @@
             depotSelect.addEventListener('change', handleDepotChange);
             document.getElementById('scanner-tab-btn').addEventListener('click', () => switchTab('scanner'));
             document.getElementById('manual-tab-btn').addEventListener('click', () => switchTab('manual'));
-            document.getElementById('manual-search-form').addEventListener('submit', (e) => { e.preventDefault(); const ref = document.getElementById('ref-input').value.trim(); const size = document.getElementById('size-select').value; if (!ref || !size) { showMessage('Référence et taille requises.', 'error'); return; } appState.lastSearchRef = ref.toUpperCase(); displayProductInfo(findProduct(ref, size)); });
+            
+            refSubtabBtn.addEventListener('click', () => switchManualTab('ref'));
+            barcodeSubtabBtn.addEventListener('click', () => switchManualTab('barcode'));
+            refInput.addEventListener('input', updateSizeSelector);
+            barcodeInput.addEventListener('input', updateSizeSelector);
+            
+            document.getElementById('manual-search-form').addEventListener('submit', (e) => {
+                e.preventDefault(); 
+                const inputEl = appState.manualSearchType === 'ref' ? refInput : barcodeInput;
+                const ref = inputEl.value.trim(); 
+                const size = sizeSelect.value; 
+                if (!ref || !size || sizeSelect.disabled) { showMessage('Référence et taille requises.', 'error'); return; } 
+                appState.lastSearchRef = ref;
+                displayProductInfo(findProduct(ref, size, false)); 
+            });
 
             // --- Initial Setup ---
             function initializeApp() {
