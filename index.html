@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cegid Collector (Debug)</title>
+    <title>Cegid Collector</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        /* ... (tous les styles restent les mêmes) ... */
         body { -webkit-font-smoothing: antialiased; font-family: 'Inter', sans-serif; }
         #reader { border: 2px solid #4f46e5; border-radius: 0.5rem; overflow: hidden; position: relative; }
         .tab-active { background-color: #4f46e5; color: white; }
@@ -16,12 +15,10 @@
         .focus-ring:focus { outline: 2px solid #818cf8; outline-offset: 2px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } }
-        .dot-loaded { animation: pulse-green 1.5s infinite; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 50; }
         #torch-btn { position: absolute; bottom: 10px; right: 10px; background-color: rgba(0,0,0,0.5); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; }
         #torch-btn.active { color: #facc15; }
-        .history-item { cursor: pointer; transition: background-color 0.2s; }
+        .history-item { cursor: pointer; transition: background-color: 0.2s; }
         .history-item:hover { background-color: #4f46e5; }
         #debug-panel { background-color: #1f2937; border: 1px solid #4b5563; }
     </style>
@@ -31,6 +28,7 @@
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
 
+    <!-- MODALS (Unchanged) -->
     <div id="login-overlay" class="modal-overlay"> <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm"> <h2 class="text-2xl font-bold text-center text-indigo-400 mb-6">Connexion</h2> <form id="login-form"><div class="mb-4"><label for="password-input" class="block text-sm font-medium mb-1">Mot de passe</label><input type="password" id="password-input" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring" required></div><button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus-ring">Entrer</button></form> <p id="login-error" class="text-red-500 text-sm text-center mt-4 hidden">Mot de passe incorrect.</p> </div> </div>
     <div id="master-password-modal" class="modal-overlay hidden"> <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm"> <h2 class="text-2xl font-bold text-center text-red-500 mb-6">Accès Administrateur</h2> <form id="master-password-form"><div class="mb-4"><label for="master-password-input" class="block text-sm font-medium mb-1">Mot de passe Maître</label><input type="password" id="master-password-input" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring" required></div><div class="mt-6 flex space-x-4"><button type="button" id="cancel-master-password" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg focus-ring">Annuler</button><button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus-ring">Valider</button></div></form> <p id="master-password-error" class="text-red-500 text-sm text-center mt-4 hidden">Mot de passe maître incorrect.</p> </div> </div>
     <div id="password-change-modal" class="modal-overlay hidden"> <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm"> <h2 class="text-2xl font-bold text-center text-indigo-400 mb-6">Changer le mot de passe</h2> <form id="password-change-form"><div class="space-y-4"><div><label for="current-password" class="block text-sm font-medium mb-1">Actuel</label><input type="password" id="current-password" class="w-full bg-gray-700 rounded-lg p-2 focus-ring" required></div><div><label for="new-password" class="block text-sm font-medium mb-1">Nouveau</label><input type="password" id="new-password" class="w-full bg-gray-700 rounded-lg p-2 focus-ring" required></div><div><label for="confirm-password" class="block text-sm font-medium mb-1">Confirmer</label><input type="password" id="confirm-password" class="w-full bg-gray-700 rounded-lg p-2 focus-ring" required></div></div><div class="mt-6 flex space-x-4"><button type="button" id="cancel-password-change" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg focus-ring">Annuler</button><button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg focus-ring">Sauvegarder</button></div></form> <p id="password-change-error" class="text-red-500 text-sm text-center mt-4 hidden"></p> </div> </div>
@@ -44,18 +42,17 @@
             </div>
             <div class="flex items-center space-x-3">
                 <label for="depot-select" class="text-sm font-medium">Dépôt:</label>
-                <select id="depot-select" class="flex-grow bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus-ring"><option>AZ</option><option>Senia</option><option>Siege</option><option>M1</option><option>M2</option><option>Dépot centrale</option></select>
+                <select id="depot-select" class="flex-grow bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus-ring"></select>
             </div>
             <div class="mt-3 flex items-center justify-center space-x-2 text-xs">
-                <span id="data-status-text" class="font-semibold">Status:</span>
-                <div id="depot-status-container" class="flex items-center space-x-2"></div>
+                 <p id="data-status-text" class="font-semibold text-center">Status: Initialisation...</p>
             </div>
         </header>
 
         <div class="flex justify-center border-b border-gray-700 mb-4"><button id="scanner-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300 tab-active"><i class="fas fa-qrcode mr-2"></i>Scanner</button><button id="manual-tab-btn" class="flex-1 py-2 text-center font-semibold text-gray-300 transition-colors duration-300"><i class="fas fa-search mr-2"></i>Manuel</button></div>
+        
         <main class="flex-grow overflow-y-auto no-scrollbar">
             <div id="scanner-content"><div id="reader" class="w-full h-64 bg-gray-900 rounded-lg"><div id="torch-btn" class="hidden"><i class="fas fa-lightbulb"></i></div></div><div id="scanner-status" class="text-center text-sm text-gray-400 mt-2"></div></div>
-            
             <div id="manual-content" class="hidden">
                 <div class="mb-4 flex rounded-md shadow-sm">
                     <button id="ref-subtab-btn" type="button" class="relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-600 text-sm font-medium rounded-l-md text-gray-300 hover:bg-gray-700 focus:z-10 focus-ring subtab-active">Code-barre</button>
@@ -63,12 +60,12 @@
                 </div>
                 <form id="manual-search-form" class="space-y-4">
                     <div id="ref-input-container">
-                        <label for="ref-input" class="block text-sm font-medium mb-1">Code-barre Produit (base)</label>
-                        <input type="text" id="ref-input" placeholder="Ex: 003789" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
+                        <label for="ref-input" class="block text-sm font-medium mb-1">Code-barre Produit</label>
+                        <input type="text" id="ref-input" placeholder="Scanner ou saisir..." class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
                     </div>
                     <div id="barcode-input-container" class="hidden">
-                        <label for="barcode-input" class="block text-sm font-medium mb-1">Référence Produit (complète)</label>
-                        <input type="text" id="barcode-input" placeholder="Ex: 003789-102" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
+                        <label for="barcode-input" class="block text-sm font-medium mb-1">Référence Article</label>
+                        <input type="text" id="barcode-input" placeholder="Saisir la référence de base..." class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus-ring">
                     </div>
                     <div>
                         <label for="size-select" class="block text-sm font-medium mb-1">Taille / Pointure</label>
@@ -80,7 +77,7 @@
 
             <div id="message-display" class="mt-4 text-center p-3 rounded-lg hidden"></div>
             <div id="product-info" class="mt-4 p-4 bg-gray-700 rounded-lg hidden space-y-2"></div>
-            <div id="search-all-container" class="mt-4 hidden"><button id="search-all-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus-ring"><i class="fas fa-globe-americas mr-2"></i>Rechercher partout</button></div>
+            <div id="search-all-container" class="mt-4 hidden"><button id="search-all-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus-ring"><i class="fas fa-globe-americas mr-2"></i>Rechercher dans les autres dépôts</button></div>
             <div id="history-container" class="mt-6 hidden"><h3 class="text-sm font-semibold text-gray-400 mb-2 text-center">Historique récent</h3><div id="history-list" class="space-y-2"></div></div>
         </main>
         
@@ -88,7 +85,6 @@
              <p class="text-sm text-gray-500 text-center">Données fournies par Google Sheets.</p>
         </footer>
         
-        <!-- DEBUG PANEL -->
         <div id="debug-panel" class="p-3 mt-4 rounded-lg text-xs">
             <h4 class="font-bold text-yellow-400 mb-2">Infos de Débogage</h4>
             <div id="debug-content" class="space-y-1 font-mono"></div>
@@ -99,14 +95,27 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- CONFIGURATION -- Collez vos informations ici ! ---
-            const API_KEY = 'AIzaSyD-d47zCqT_b9WqSy4pgOuBw5DYZjXz36U';
-            const SPREADSHEET_ID = '1H_0jn7jO8F2lN6izxqwk605-2aB0H1fBoBMrPlrH0-M';
+            const API_KEY = 'AIzaSyD-d47zCqT_b9WqSy4pgOuBw5DYZjXz36U'; // Remplacez par votre clé API
+            // UPDATED: The ID of your new spreadsheet
+            const SPREADSHEET_ID = '1ZjTnlthhnj_FT7puGY-BUy3GsN0BmY9PTiCDQ2qmWIE'; 
+            // IMPORTANT: Make sure the tab name in your sheet is exactly "FS"
+            const DATA_SHEET_NAME = 'FS'; 
+
+            // This configuration maps dropdown names to Google Sheet column headers
+            const DEPOT_CONFIG = {
+                'Siege': 'QTE_SIEGE',
+                'AZ': 'QTE_AZ',
+                'M1': 'QTE_M1',
+                'M2': 'QTE_M2',
+                'Senia': 'QTE_SENIA'
+            };
             // ----------------------------------------------------
 
             const PASSWORD_KEY = 'cegidCollectorPassword';
             const DEFAULT_PASSWORD = 'admin';
             const MASTER_PASSWORD = 'MasterCegid2024';
             
+            // --- Element Selectors (Unchanged) ---
             const mainAppContainer = document.getElementById('main-app-container');
             const loginOverlay = document.getElementById('login-overlay');
             const masterPasswordModal = document.getElementById('master-password-modal');
@@ -127,7 +136,6 @@
             const depotSelect = document.getElementById('depot-select');
             const dataStatusText = document.getElementById('data-status-text');
             const debugContent = document.getElementById('debug-content');
-            
             const refSubtabBtn = document.getElementById('ref-subtab-btn');
             const barcodeSubtabBtn = document.getElementById('barcode-subtab-btn');
             const refInputContainer = document.getElementById('ref-input-container');
@@ -137,11 +145,11 @@
             const sizeSelect = document.getElementById('size-select');
 
             const appState = {
-                currentDepot: 'AZ',
+                currentDepot: Object.keys(DEPOT_CONFIG)[0], // Default to the first depot in the config
                 activeTab: 'scanner',
-                manualSearchType: 'ref', // 'ref' or 'barcode'
-                depots: ['AZ', 'Senia', 'Siege', 'M1', 'M2', 'Dépot centrale'],
-                loadedData: {},
+                manualSearchType: 'ref',
+                allProducts: [], 
+                dataLoaded: false, 
                 history: [],
                 torchOn: false,
                 cameraTrack: null,
@@ -153,66 +161,105 @@
             
             function updateDebugPanel(html) { debugContent.innerHTML = html; }
 
-            function initSounds() { 
-                if (typeof Tone === 'undefined') { console.error("Tone.js has not loaded."); sound = { triggerAttackRelease: () => {} }; errorSound = { triggerAttackRelease: () => {} }; return; }
-                if (Tone.context.state !== 'running') { Tone.start(); } 
-                sound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(); 
-                errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(); 
-            }
+            // --- Utility Functions (Unchanged) ---
+            function initSounds() { if (typeof Tone === 'undefined') { console.error("Tone.js has not loaded."); sound = { triggerAttackRelease: () => {} }; errorSound = { triggerAttackRelease: () => {} }; return; } if (Tone.context.state !== 'running') { Tone.start(); } sound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination(); errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 } }).toDestination(); }
             function initializePassword() { if (!localStorage.getItem(PASSWORD_KEY)) { localStorage.setItem(PASSWORD_KEY, DEFAULT_PASSWORD); } }
-            
             function handleLogin(e) { e.preventDefault(); if (document.getElementById('password-input').value === localStorage.getItem(PASSWORD_KEY)) { loginOverlay.classList.add('hidden'); mainAppContainer.classList.remove('hidden'); mainAppContainer.style.display = 'flex'; initSounds(); initializeApp(); } else { document.getElementById('login-error').classList.remove('hidden'); } }
             function handleMasterPassword(e) { e.preventDefault(); if (document.getElementById('master-password-input').value === MASTER_PASSWORD) { masterPasswordModal.classList.add('hidden'); passwordChangeModal.classList.remove('hidden'); } else { document.getElementById('master-password-error').classList.remove('hidden'); } }
             function handlePasswordChange(e) { e.preventDefault(); const current = document.getElementById('current-password').value, newP = document.getElementById('new-password').value, confirmP = document.getElementById('confirm-password').value, errorEl = document.getElementById('password-change-error'); if (current !== localStorage.getItem(PASSWORD_KEY)) { errorEl.textContent = 'Actuel incorrect.'; errorEl.classList.remove('hidden'); return; } if (newP.length < 4) { errorEl.textContent = 'Trop court (4 min).'; errorEl.classList.remove('hidden'); return; } if (newP !== confirmP) { errorEl.textContent = 'Ne correspondent pas.'; errorEl.classList.remove('hidden'); return; } localStorage.setItem(PASSWORD_KEY, newP); passwordChangeModal.classList.add('hidden'); showMessage('Mot de passe changé !', 'success'); }
 
-            async function loadDataFromSheet(depotName) {
-                if (API_KEY === 'METTEZ_VOTRE_CLE_API_ICI' || SPREADSHEET_ID === 'METTEZ_L_ID_DE_VOTRE_GOOGLE_SHEET_ICI') { showMessage('Veuillez configurer la clé API et l"ID de la feuille dans le code.', 'error'); return; }
-                dataStatusText.textContent = `Chargement de ${depotName}...`;
-                updateDepotStatusUI(); 
-                updateDebugPanel(`<span>Tentative de chargement pour: ${depotName}</span>`);
-                const range = `${encodeURIComponent(depotName)}!A:F`;
+            // --- Core Data Loading and Processing ---
+            async function loadAllData() {
+                if (API_KEY.startsWith('AIzaSyD') === false || SPREADSHEET_ID.length < 10) {
+                    showMessage('Veuillez configurer la clé API et l"ID de la feuille dans le code.', 'error');
+                    return;
+                }
+                dataStatusText.textContent = `Chargement des données depuis '${DATA_SHEET_NAME}'...`;
+                updateDebugPanel(`<span>Tentative de chargement...</span>`);
+                
+                const range = `${encodeURIComponent(DATA_SHEET_NAME)}!A:Z`; // Load a wide range of columns
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
+                
                 try {
                     const response = await fetch(url);
                     if (!response.ok) { const errorData = await response.json().catch(() => null); const googleErrorMessage = errorData?.error?.message || `Le serveur a répondu avec le statut ${response.status}`; throw new Error(googleErrorMessage); }
                     const data = await response.json();
-                    if (!data.values || data.values.length < 2) { appState.loadedData[depotName] = []; } 
-                    else {
-                        const headers = data.values[0]; const rows = data.values.slice(1);
-                        appState.loadedData[depotName] = rows.map(row => {
-                            let product = {};
-                            headers.forEach((header, index) => { product[header] = row[index] || ''; });
-                            return { name: String(product.name || '').trim(), ref: String(product.ref || '').trim().toUpperCase(), baseRef: String(product.baseRef || '').trim().toUpperCase(), size: String(product.size || 'Unique').trim(), price: parseFloat(product.price) || 0, qty: parseInt(product.qty, 10) || 0 };
-                        }).filter(p => p.ref || p.baseRef);
+
+                    if (!data.values || data.values.length < 2) {
+                        appState.allProducts = [];
+                    } else {
+                        const headers = data.values[0];
+                        const rows = data.values.slice(1);
+                        const products = [];
+
+                        rows.forEach(row => {
+                            const rowData = {};
+                            headers.forEach((header, index) => { rowData[header] = row[index] || ''; });
+
+                            // Create a product for each depot defined in DEPOT_CONFIG
+                            for (const depotName in DEPOT_CONFIG) {
+                                const qtyColumnName = DEPOT_CONFIG[depotName];
+                                const qty = parseInt(rowData[qtyColumnName], 10) || 0;
+
+                                // Use the user-specified column headers
+                                const product = {
+                                    name: String(rowData.GA_LIBELLE || '').trim(),
+                                    ref: String(rowData.GA_CODEBARRE || '').trim().toUpperCase(),
+                                    baseRef: String(rowData.GA_CODEARTICLE || '').trim().toUpperCase(),
+                                    size: String(rowData.TAILLE || 'Unique').trim(),
+                                    price: parseFloat(String(rowData.PRIX || '0').replace(',', '.')) || 0,
+                                    depot: depotName,
+                                    qty: qty
+                                };
+
+                                if (product.ref || product.baseRef) {
+                                    products.push(product);
+                                }
+                            }
+                        });
+                        appState.allProducts = products;
                     }
-                    dataStatusText.textContent = 'Status:';
-                    updateDepotStatusUI();
-                    const loadedProducts = appState.loadedData[depotName];
-                    let debugHTML = `<div><span class="text-green-400">Succès:</span> ${loadedProducts.length} produits chargés pour ${depotName}.</div>`;
-                    if (loadedProducts.length > 0) { debugHTML += `<div>Échantillon ref/baseRef:</div>`; loadedProducts.slice(0, 3).forEach(p => { debugHTML += `<div>- "${p.ref}" / "${p.baseRef}"</div>`; }); }
-                    updateDebugPanel(debugHTML);
-                    if(appState.activeTab === 'scanner') { startScanner(); }
-                } catch (error) { showMessage(`Erreur chargement: ${error.message}`, 'error'); updateDebugPanel(`<div class="text-red-400">Échec chargement: ${error.message}</div>`); dataStatusText.textContent = 'Erreur:'; updateDepotStatusUI(); }
+                    
+                    appState.dataLoaded = true;
+                    dataStatusText.textContent = `Données chargées (${appState.allProducts.length} articles)`;
+                    updateDebugPanel(`<div><span class="text-green-400">Succès:</span> ${appState.allProducts.length} articles chargés.</div>`);
+
+                    if(appState.activeTab === 'scanner') {
+                        startScanner();
+                    }
+                } catch (error) {
+                    appState.dataLoaded = false;
+                    showMessage(`Erreur chargement: ${error.message}`, 'error');
+                    updateDebugPanel(`<div class="text-red-400">Échec chargement: ${error.message}</div>`);
+                    dataStatusText.textContent = 'Erreur de chargement des données!';
+                }
             }
 
             function handleDepotChange(e) {
                 appState.currentDepot = e.target.value;
-                hideProductInfo(); hideMessage(); searchAllContainer.classList.add('hidden');
-                if (!appState.loadedData[appState.currentDepot]) { loadDataFromSheet(appState.currentDepot); }
-                if (appState.activeTab === 'scanner') { stopScanner(); startScanner(); }
+                hideProductInfo();
+                hideMessage();
+                searchAllContainer.classList.add('hidden');
+                if (appState.activeTab === 'scanner') {
+                    stopScanner();
+                    startScanner();
+                }
+            }
+            
+            function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR'); }
+
+            function setupDepotDropdown() {
+                depotSelect.innerHTML = '';
+                for (const depotName in DEPOT_CONFIG) {
+                    const option = document.createElement('option');
+                    option.value = depotName;
+                    option.textContent = depotName;
+                    depotSelect.appendChild(option);
+                }
+                depotSelect.value = appState.currentDepot;
             }
 
-            function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR'); }
-            function updateDepotStatusUI() {
-                const container = document.getElementById('depot-status-container'); container.innerHTML = '';
-                appState.depots.forEach(depot => {
-                    const isLoaded = !!appState.loadedData[depot];
-                    const dot = document.createElement('div');
-                    dot.className = `w-2 h-2 rounded-full ${isLoaded ? 'bg-green-500 dot-loaded' : 'bg-gray-500'}`;
-                    dot.title = `${depot}: ${isLoaded ? 'Données chargées' : 'Pas de données'}`;
-                    container.appendChild(dot);
-                });
-            }
+            // --- UI and Interaction Logic ---
             function switchTab(tabName) {
                 appState.activeTab = tabName;
                 document.getElementById('scanner-tab-btn').classList.toggle('tab-active', tabName === 'scanner');
@@ -229,8 +276,7 @@
                 barcodeSubtabBtn.classList.toggle('subtab-active', type === 'barcode');
                 refInputContainer.classList.toggle('hidden', type !== 'ref');
                 barcodeInputContainer.classList.toggle('hidden', type !== 'barcode');
-                refInput.value = '';
-                barcodeInput.value = '';
+                refInput.value = ''; barcodeInput.value = '';
                 sizeSelect.innerHTML = '<option>Entrer une référence</option>';
                 sizeSelect.disabled = true;
             }
@@ -239,57 +285,55 @@
                 const inputEl = appState.manualSearchType === 'ref' ? refInput : barcodeInput;
                 const searchTerm = inputEl.value.trim().toUpperCase();
                 
-                updateDebugPanel(`<div>Mode: ${appState.manualSearchType} | Recherche de: "${searchTerm}"</div>`);
-
                 sizeSelect.innerHTML = '';
                 sizeSelect.disabled = true;
-                const data = appState.loadedData[appState.currentDepot];
-                if (!data) { sizeSelect.innerHTML = '<option>Données non chargées</option>'; return; }
+                if (!appState.dataLoaded) { sizeSelect.innerHTML = '<option>Données non chargées</option>'; return; }
                 if (!searchTerm) { sizeSelect.innerHTML = "<option>Entrer une référence</option>"; return; }
 
                 let productsForSizing = [];
-                if (appState.manualSearchType === 'ref') {
-                    const matchByFullRef = data.find(p => p.ref === searchTerm);
+                if (appState.manualSearchType === 'ref') { // GA_CODEBARRE
+                    const matchByFullRef = appState.allProducts.find(p => p.ref === searchTerm);
                     if (matchByFullRef) {
-                        productsForSizing = data.filter(p => p.baseRef === matchByFullRef.baseRef);
+                        productsForSizing = appState.allProducts.filter(p => p.baseRef === matchByFullRef.baseRef && p.depot === appState.currentDepot);
                     }
-                } else { // 'barcode'
-                    productsForSizing = data.filter(p => p.baseRef === searchTerm);
+                } else { // GA_CODEARTICLE
+                    productsForSizing = appState.allProducts.filter(p => p.baseRef === searchTerm && p.depot === appState.currentDepot);
                 }
                 
                 if (productsForSizing.length > 0) {
-                    const targetBaseRef = productsForSizing[0].baseRef;
-                    updateDebugPanel(`<div>Terme trouvé. baseRef identifiée: "${targetBaseRef}". ${productsForSizing.length} tailles trouvées.</div>`);
                     const uniqueSizes = [...new Set(productsForSizing.map(p => p.size))];
                     uniqueSizes.forEach(size => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; sizeSelect.appendChild(opt); });
                     sizeSelect.disabled = false;
                 } else {
-                    updateDebugPanel(`<div>Aucun produit trouvé pour "${searchTerm}".</div>`);
                     sizeSelect.innerHTML = '<option>Aucune réf. trouvée</option>';
                 }
             }
 
             function findProduct(term, size, isScan = false, depot = appState.currentDepot) {
-                const data = appState.loadedData[depot];
-                if (!data) return null;
+                if (!appState.dataLoaded) return null;
                 const searchTerm = term.trim().toUpperCase();
-
+                
+                // For scan, we just find the exact ref in the current depot
                 if (isScan) {
-                    return data.find(p => p.ref === searchTerm);
+                    return appState.allProducts.find(p => p.ref === searchTerm && p.depot === depot);
                 }
 
+                // For manual search, logic is more complex
                 if (size) {
                     const searchType = appState.manualSearchType;
-                    let firstMatch;
-                    if (searchType === 'ref') {
-                        firstMatch = data.find(p => p.ref === searchTerm);
-                    } else { // barcode
-                        firstMatch = data.find(p => p.baseRef === searchTerm);
+                    let baseRefToUse;
+                    if (searchType === 'ref') { // User entered a GA_CODEBARRE
+                        const firstMatch = appState.allProducts.find(p => p.ref === searchTerm && p.depot === depot);
+                        if (!firstMatch) return null;
+                        baseRefToUse = firstMatch.baseRef;
+                    } else { // User entered a GA_CODEARTICLE
+                        baseRefToUse = searchTerm;
                     }
-                    if (!firstMatch) return null;
-                    return data.find(p => p.baseRef === firstMatch.baseRef && p.size === size);
+                    return appState.allProducts.find(p => p.baseRef === baseRefToUse && p.size === size && p.depot === depot);
                 }
-                return data.find(p => p.ref === searchTerm);
+                
+                // Fallback for searches without size (less common now)
+                return appState.allProducts.find(p => p.ref === searchTerm && p.depot === depot);
             }
 
             function onScanSuccess(decodedText) {
@@ -301,39 +345,35 @@
 
             function displayProductInfo(product, fromHistory = false) {
                 hideMessage();
-                searchAllContainer.classList.add('hidden'); // Hide it by default
+                searchAllContainer.classList.add('hidden'); 
 
                 if (product) {
-                    appState.lastSearchRef = product.baseRef; // Set the last search ref to the canonical baseRef
+                    appState.lastSearchRef = product.baseRef; 
 
                     if(!fromHistory) { sound.triggerAttackRelease("C5", "0.2"); addToHistory(product); }
                     productInfoEl.innerHTML = `<div class="text-lg font-bold">${product.name}</div><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><span class="font-semibold text-gray-400">Référence:</span><span>${product.ref}</span><span class="font-semibold text-gray-400">Taille:</span><span class="font-bold text-lg">${product.size}</span><span class="font-semibold text-gray-400">Prix:</span><span>${product.price.toFixed(2)} DZ</span><span class="font-semibold text-gray-400">Quantité (${appState.currentDepot}):</span><span class="font-bold text-xl text-indigo-400">${product.qty}</span></div>`;
                     productInfoEl.classList.remove('hidden');
 
-                    // NEW LOGIC: Check for qty === 0
                     if (product.qty === 0) {
-                        if (Object.keys(appState.loadedData).length > 1) {
-                            searchAllContainer.classList.remove('hidden');
-                        }
+                        searchAllContainer.classList.remove('hidden');
                     }
-
                 } else {
                     errorSound.triggerAttackRelease("C3", "0.3");
                     hideProductInfo();
-                    showMessage('Produit non trouvé.', 'error');
-                    // This logic remains: show button if product is not found at all
-                    if(Object.keys(appState.loadedData).length > 0 && appState.lastSearchRef) {
+                    showMessage('Produit non trouvé dans ce dépôt.', 'error');
+                    if(appState.lastSearchRef) {
                         searchAllContainer.classList.remove('hidden');
                     }
                 }
             }
+            
             function hideProductInfo() { productInfoEl.classList.add('hidden'); }
-            function showMessage(text, type = 'info') { messageDisplay.textContent = text; messageDisplay.className = 'mt-4 text-center p-3 rounded-lg'; if (type === 'error') { messageDisplay.classList.add('bg-red-500'); } else if (type === 'success') { messageDisplay.classList.add('bg-green-500'); } else { messageDisplay.classList.add('bg-blue-500'); } }
+            function showMessage(text, type = 'info') { messageDisplay.textContent = text; messageDisplay.className = 'mt-4 text-center p-3 rounded-lg'; if (type === 'error') { messageDisplay.classList.add('bg-red-500', 'text-white'); } else if (type === 'success') { messageDisplay.classList.add('bg-green-600', 'text-white'); } else { messageDisplay.classList.add('bg-blue-500', 'text-white'); } }
             function hideMessage() { messageDisplay.classList.add('hidden'); }
             
             function startScanner() {
                 if (html5QrCode && html5QrCode.isScanning) { return; }
-                if (!appState.loadedData[appState.currentDepot]) { document.getElementById('scanner-status').textContent = `Données non chargées.`; return; }
+                if (!appState.dataLoaded) { document.getElementById('scanner-status').textContent = `Données non chargées.`; return; }
                 html5QrCode = new Html5Qrcode("reader");
                 document.getElementById('scanner-status').textContent = "Démarrage caméra...";
                 html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, () => {})
@@ -344,23 +384,25 @@
             }
             function stopScanner() { if (appState.torchOn) toggleTorch(); if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop().catch(() => {}); } torchBtn.classList.add('hidden'); }
             function toggleTorch() { if (appState.cameraTrack) { appState.torchOn = !appState.torchOn; appState.cameraTrack.applyConstraints({ advanced: [{ torch: appState.torchOn }] }); torchBtn.classList.toggle('active', appState.torchOn); } }
-            function addToHistory(product) { appState.history = [product, ...appState.history.filter(p => p.ref !== product.ref)].slice(0, 5); renderHistory(); }
-            function renderHistory() { if (appState.history.length === 0) { historyContainer.classList.add('hidden'); return; } historyList.innerHTML = ''; appState.history.forEach(p => { const item = document.createElement('div'); item.className = 'history-item bg-gray-700 p-2 rounded-lg flex justify-between items-center text-sm'; item.innerHTML = `<span>${p.name} <span class="text-gray-400">(${p.ref})</span></span><span class="font-bold">${p.qty}</span>`; item.dataset.ref = p.ref; historyList.appendChild(item); }); historyContainer.classList.remove('hidden'); }
-            function handleHistoryClick(e) { const item = e.target.closest('.history-item'); if(item) { const ref = item.dataset.ref; const product = findProduct(ref, null, false); if (product) { displayProductInfo(product, true); window.scrollTo(0,0); } } }
+            
+            function addToHistory(product) { appState.history = [{...product}, ...appState.history.filter(p => p.ref !== product.ref)].slice(0, 5); renderHistory(); }
+            function renderHistory() { if (appState.history.length === 0) { historyContainer.classList.add('hidden'); return; } historyList.innerHTML = ''; appState.history.forEach(p => { const item = document.createElement('div'); item.className = 'history-item bg-gray-700 p-2 rounded-lg flex justify-between items-center text-sm'; item.innerHTML = `<span>${p.name} <span class="text-gray-400">(${p.ref})</span></span><span class="font-bold">${p.qty} (${p.depot})</span>`; item.dataset.ref = p.ref; item.dataset.depot = p.depot; historyList.appendChild(item); }); historyContainer.classList.remove('hidden'); }
+            function handleHistoryClick(e) { const item = e.target.closest('.history-item'); if(item) { const ref = item.dataset.ref; const depot = item.dataset.depot; const product = appState.allProducts.find(p => p.ref === ref && p.depot === depot); if (product) { depotSelect.value = depot; appState.currentDepot = depot; displayProductInfo(product, true); window.scrollTo(0,0); } } }
             
             function handleSearchAll() {
-                const baseRefToSearch = appState.lastSearchRef; // This is now always a baseRef
+                const baseRefToSearch = appState.lastSearchRef;
                 if (!baseRefToSearch) return;
+                
                 let results = [];
-                for (const depot in appState.loadedData) {
-                    if (depot === appState.currentDepot) continue;
-                    const depotData = appState.loadedData[depot];
-                    const itemsInDepot = depotData.filter(p => p.baseRef === baseRefToSearch && p.qty > 0);
+                const otherDepots = Object.keys(DEPOT_CONFIG).filter(d => d !== appState.currentDepot);
+
+                otherDepots.forEach(depot => {
+                    const itemsInDepot = appState.allProducts.filter(p => p.baseRef === baseRefToSearch && p.depot === depot && p.qty > 0);
                     if (itemsInDepot.length > 0) {
                         const totalQtyInDepot = itemsInDepot.reduce((sum, item) => sum + item.qty, 0);
                         results.push({depot, qty: totalQtyInDepot});
                     }
-                }
+                });
 
                 if(results.length > 0) {
                     showMessage(`Trouvé: ${results.map(r => `${r.depot} (${r.qty})`).join(', ')}`, 'success');
@@ -395,15 +437,23 @@
                 const ref = inputEl.value.trim(); 
                 const size = sizeSelect.value; 
                 if (!ref || !size || sizeSelect.disabled) { showMessage('Référence et taille requises.', 'error'); return; } 
-                appState.lastSearchRef = ref;
+                
+                if(appState.manualSearchType === 'ref') {
+                    const firstMatch = appState.allProducts.find(p => p.ref === ref.toUpperCase());
+                    appState.lastSearchRef = firstMatch ? firstMatch.baseRef : ref.toUpperCase();
+                } else {
+                    appState.lastSearchRef = ref.toUpperCase();
+                }
+
                 displayProductInfo(findProduct(ref, size, false)); 
             });
 
             // --- Initial Setup ---
             function initializeApp() {
-                setInterval(updateClock, 1000); updateClock();
-                updateDepotStatusUI();
-                loadDataFromSheet(appState.currentDepot);
+                setInterval(updateClock, 1000); 
+                updateClock();
+                setupDepotDropdown();
+                loadAllData(); // This is the single data load call
                 switchTab('scanner');
             }
             initializePassword();
